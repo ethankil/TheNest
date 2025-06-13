@@ -2,12 +2,12 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID",
+  apiKey: "AIzaSyBAbpVCQ7u-2oYpeR7yeFNbTCrO-f32L6k",
+  authDomain: "the-nest-1da19.firebaseapp.com",
+  projectId: "the-nest-1da19",
+  storageBucket: "the-nest-1da19.firebasestorage.app",
+  messagingSenderId: "50043851612",
+  appId: "1:50043851612:web:330d75df45cbb8642be799",
 };
 
 const app = initializeApp(firebaseConfig);
