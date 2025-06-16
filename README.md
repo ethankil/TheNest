@@ -1,3 +1,1 @@
-Initial README commit<br>
-Shegofa Ahmadi<br>
-FR6
+Initial README commit
