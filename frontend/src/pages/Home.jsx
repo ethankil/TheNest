@@ -2,13 +2,32 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "../firebase";
-import { useState } from "react";
+import { useState, useEffect} from "react";
 import UNTLogo from "../assets/UNTLogo.png"; // ✅ Make sure this path is correct
 
 function Home() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedTag, setSelectedTag] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+   const handleSearch = async () => {
+  try {
+    const params = new URLSearchParams({
+      keyword: searchQuery,
+      category: selectedCategory,
+      tag: selectedTag,
+    });
+    const response = await fetch(`/api/search?${params.toString()}`);
+    const data = await response.json();
+    setSearchResults(data.posts || []);
+  } catch (err) {
+    console.error("Search error:", err);
+  }
+};
+
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -85,17 +104,49 @@ function Home() {
           alignItems: "center",
           marginBottom: "2rem"
         }}>
-          <input
-            type="text"
-            placeholder="Search..."
-            style={{
-              flex: 1,
-              padding: "10px",
-              marginRight: "1rem",
-              border: "1px solid #ccc",
-              borderRadius: "4px"
-            }}
-          />
+
+          <div style={{ flex: 1, marginRight: "1rem" }}>
+  <input
+    type="text"
+    placeholder="Search..."
+    value={searchQuery}
+    onChange={(e) => setSearchQuery(e.target.value)}
+    style={{
+      padding: "10px",
+      width: "100%",
+      border: "1px solid #ccc",
+      borderRadius: "4px"
+    }}
+  />
+  <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
+    <select
+      value={selectedCategory}
+      onChange={(e) => setSelectedCategory(e.target.value)}
+    >
+      <option value="">All Categories</option>
+      <option value="Academic">Academic</option>
+      <option value="Career">Career</option>
+      <option value="Housing">Housing</option>
+    </select>
+
+    <select
+      value={selectedTag}
+      onChange={(e) => setSelectedTag(e.target.value)}
+    >
+      <option value="">All Tags</option>
+      <option value="Scholarship">Scholarship</option>
+      <option value="Classes">Classes</option>
+      <option value="Internship">Internship</option>
+    </select>
+
+    <button onClick={handleSearch} style={{ padding: "8px 12px" }}>
+      Search
+    </button>
+  </div>
+</div>
+
+    
+
           <div style={{ position: "relative" }}>
             <div
               onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -146,6 +197,26 @@ function Home() {
 
         {/* Feed */}
         <h2 style={{ marginBottom: "1rem" }}>Feed</h2>
+        {searchQuery || selectedCategory || selectedTag ? (
+  searchResults.length > 0 ? (
+    searchResults.map((post) => (
+      <div key={post.id} style={{
+        backgroundColor: "#fff",
+        padding: "1rem",
+        marginBottom: "1rem",
+        borderRadius: "6px",
+        boxShadow: "0 1px 4px rgba(0,0,0,0.08)"
+      }}>
+        <h3>{post.title}</h3>
+        <p>{post.description}</p>
+        <span style={{ fontSize: "0.85rem", color: "#888" }}>{post.tags?.join(", ")}</span>
+      </div>
+    ))
+  ) : (
+    <p>No results found.</p>
+  )
+) : (
+  <>
 
         <div style={{
           backgroundColor: "#fff",
@@ -169,8 +240,8 @@ function Home() {
           <p>This is another placeholder post.</p>
           <span style={{ fontSize: "0.85rem", color: "#888" }}>#tag2</span>
         </div>
-      </div>
-
+      </>
+)}
       {/* Right Sidebar */}
       <div style={{
         width: "220px",
@@ -185,7 +256,9 @@ function Home() {
         </ul>
       </div>
     </div>
+    </div>
   );
 }
+
 
 export default Home;
