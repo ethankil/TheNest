@@ -2,31 +2,27 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "../firebase";
-import { useState, useEffect} from "react";
+import { useState, useEffect } from "react";
 import UNTLogo from "../assets/UNTLogo.png"; // ✅ Make sure this path is correct
 
 function Home() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [selectedTag, setSelectedTag] = useState("");
-  const [searchResults, setSearchResults] = useState([]);
-   const handleSearch = async () => {
-  try {
-    const params = new URLSearchParams({
-      keyword: searchQuery,
-      category: selectedCategory,
-      tag: selectedTag,
-    });
-    const response = await fetch(`/api/search?${params.toString()}`);
-    const data = await response.json();
-    setSearchResults(data.posts || []);
-  } catch (err) {
-    console.error("Search error:", err);
-  }
-};
+  
+  // FR6 implementation, start here 
+   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedSort, setSelectedSort] = useState("");
+  const [filteredPosts, setFilteredPosts] = useState([]);
+
+      useEffect(() => {
+            fetch(`/api/search?keyword=${searchTerm}&sort=${selectedSort}`)
+           .then((res) => res.json())
+           .then((data) => setFilteredPosts(data))
+           .catch((err) => console.error("Search error:", err));
+            }, [searchTerm, selectedSort]);
+
+           // FR6 implementation end here
 
 
   const handleLogout = async () => {
@@ -105,48 +101,35 @@ function Home() {
           marginBottom: "2rem"
         }}>
 
-          <div style={{ flex: 1, marginRight: "1rem" }}>
   <input
     type="text"
     placeholder="Search..."
-    value={searchQuery}
-    onChange={(e) => setSearchQuery(e.target.value)}
+    value={searchTerm}    
+    onChange={(e) => setSearchTerm(e.target.value)}
     style={{
       padding: "10px",
-      width: "100%",
+      width: "60%",
       border: "1px solid #ccc",
       borderRadius: "4px"
-    }}
-  />
-  <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
-    <select
-      value={selectedCategory}
-      onChange={(e) => setSelectedCategory(e.target.value)}
-    >
-      <option value="">All Categories</option>
-      <option value="Academic">Academic</option>
-      <option value="Career">Career</option>
-      <option value="Housing">Housing</option>
-    </select>
-
-    <select
-      value={selectedTag}
-      onChange={(e) => setSelectedTag(e.target.value)}
-    >
-      <option value="">All Tags</option>
-      <option value="Scholarship">Scholarship</option>
-      <option value="Classes">Classes</option>
-      <option value="Internship">Internship</option>
-    </select>
-
-    <button onClick={handleSearch} style={{ padding: "8px 12px" }}>
-      Search
-    </button>
-  </div>
-</div>
-
+    }}  
+/>
     
-
+<select     //FR6 implementation start here
+  value={selectedSort}
+  onChange={(e) => setSelectedSort(e.target.value)}
+>
+  <option value="">Sort</option>
+  <option value="Academic">Academic</option>
+  <option value="Career">Career</option>
+  <option value="Housing">Housing</option>
+  <option value="Scholarship">Scholarship</option>
+  <option value="Classes">Classes</option>
+  <option value="Internship">Internship</option>
+  <option value="Newest"> Newest</option>
+  <option value="Trending"> Trending</option>
+</select>        
+  {/*FR6 implementation end here */}
+  
           <div style={{ position: "relative" }}>
             <div
               onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -160,6 +143,7 @@ function Home() {
                 justifyContent: "center",
                 cursor: "pointer"
               }}
+             
               title="Profile"
             >
               🧑
@@ -197,26 +181,31 @@ function Home() {
 
         {/* Feed */}
         <h2 style={{ marginBottom: "1rem" }}>Feed</h2>
-        {searchQuery || selectedCategory || selectedTag ? (
-  searchResults.length > 0 ? (
-    searchResults.map((post) => (
-      <div key={post.id} style={{
+        
+         {  /*FR6 Implementation start */}
+        {(searchTerm || selectedSort) && filteredPosts.length === 0 ? (
+  <p style={{ fontStyle: "italic", color: "#888" }}>No results </p>
+) : (
+  filteredPosts.map((post) => (
+    <div
+      key={post.id}
+      style={{
         backgroundColor: "#fff",
         padding: "1rem",
         marginBottom: "1rem",
         borderRadius: "6px",
         boxShadow: "0 1px 4px rgba(0,0,0,0.08)"
-      }}>
-        <h3>{post.title}</h3>
-        <p>{post.description}</p>
-        <span style={{ fontSize: "0.85rem", color: "#888" }}>{post.tags?.join(", ")}</span>
-      </div>
-    ))
-  ) : (
-    <p>No results found.</p>
-  )
-) : (
-  <>
+      }}
+    >
+      <h3>{post.title}</h3>
+      <p>{post.description}</p>
+      <span>#{post.sort}</span>
+      <span style={{ fontSize: "0.85rem", color: "#888" }}>#{post.tag}</span>
+    </div>
+  ))
+)}
+
+ {/* FR6 implementation end */}
 
         <div style={{
           backgroundColor: "#fff",
@@ -240,9 +229,10 @@ function Home() {
           <p>This is another placeholder post.</p>
           <span style={{ fontSize: "0.85rem", color: "#888" }}>#tag2</span>
         </div>
-      </>
-)}
+        </div>
+      
       {/* Right Sidebar */}
+      
       <div style={{
         width: "220px",
         backgroundColor: "#f7f7f7",
@@ -255,10 +245,9 @@ function Home() {
           <li>#tag3</li>
         </ul>
       </div>
-    </div>
-    </div>
-  );
-}
-
-
+      </div>
+      
+    );
+    }
+    
 export default Home;

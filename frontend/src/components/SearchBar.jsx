@@ -2,11 +2,10 @@ import React, { useState } from "react";
 
 const SearchBar = ({ onSearch }) => {
   const [keyword, setKeyword] = useState("");
-  const [tag, setTag] = useState("");
-  const [category, setCategory] = useState("");
+  const [sort, setSort] = useState("");
 
   const handleSearch = () => {
-    onSearch({ keyword, tag, category });
+    onSearch({ keyword, sort}); 
   };
 
   return (
@@ -17,16 +16,17 @@ const SearchBar = ({ onSearch }) => {
         value={keyword}
         onChange={(e) => setKeyword(e.target.value)}
       />
-      <select value={tag} onChange={(e) => setTag(e.target.value)}>
-        <option value="">All Tags</option>
-        <option value="Django">Django</option>
-        <option value="React">React</option>
+
+      <select value={sort} onChange={(e) => setSort(e.target.value)}>
+        <option value="">Sort</option>
+        <option value="Academic">Academic</option>
+        <option value="Career">Career</option>
+        <option value="Housing">Housing</option>
+        <option value="Scholarship">Scholarship</option>
+        <option value="Classes">Classes</option>
+        <option value="Internship">Internship</option>
       </select>
-      <select value={category} onChange={(e) => setCategory(e.target.value)}>
-        <option value="">All Categories</option>
-        <option value="Q&A">Q&A</option>
-        <option value="News">News</option>
-      </select>
+
       <button onClick={handleSearch}>Search</button>
     </div>
   );
