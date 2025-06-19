@@ -2,13 +2,28 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "../firebase";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import UNTLogo from "../assets/UNTLogo.png"; // ✅ Make sure this path is correct
 
 function Home() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  
+  // FR6 implementation, start here 
+   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedSort, setSelectedSort] = useState("");
+  const [filteredPosts, setFilteredPosts] = useState([]);
+
+      useEffect(() => {
+            fetch(`/api/search?keyword=${searchTerm}&sort=${selectedSort}`)
+           .then((res) => res.json())
+           .then((data) => setFilteredPosts(data))
+           .catch((err) => console.error("Search error:", err));
+            }, [searchTerm, selectedSort]);
+
+           // FR6 implementation end here
+
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -85,17 +100,36 @@ function Home() {
           alignItems: "center",
           marginBottom: "2rem"
         }}>
-          <input
-            type="text"
-            placeholder="Search..."
-            style={{
-              flex: 1,
-              padding: "10px",
-              marginRight: "1rem",
-              border: "1px solid #ccc",
-              borderRadius: "4px"
-            }}
-          />
+
+  <input
+    type="text"
+    placeholder="Search..."
+    value={searchTerm}    
+    onChange={(e) => setSearchTerm(e.target.value)}
+    style={{
+      padding: "10px",
+      width: "60%",
+      border: "1px solid #ccc",
+      borderRadius: "4px"
+    }}  
+/>
+    
+<select     //FR6 implementation start here
+  value={selectedSort}
+  onChange={(e) => setSelectedSort(e.target.value)}
+>
+  <option value="">Sort</option>
+  <option value="Academic">Academic</option>
+  <option value="Career">Career</option>
+  <option value="Housing">Housing</option>
+  <option value="Scholarship">Scholarship</option>
+  <option value="Classes">Classes</option>
+  <option value="Internship">Internship</option>
+  <option value="Newest"> Newest</option>
+  <option value="Trending"> Trending</option>
+</select>        
+  {/*FR6 implementation end here */}
+  
           <div style={{ position: "relative" }}>
             <div
               onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -109,6 +143,7 @@ function Home() {
                 justifyContent: "center",
                 cursor: "pointer"
               }}
+             
               title="Profile"
             >
               🧑
@@ -146,6 +181,31 @@ function Home() {
 
         {/* Feed */}
         <h2 style={{ marginBottom: "1rem" }}>Feed</h2>
+        
+         {  /*FR6 Implementation start */}
+        {(searchTerm || selectedSort) && filteredPosts.length === 0 ? (
+  <p style={{ fontStyle: "italic", color: "#888" }}>No results </p>
+) : (
+  filteredPosts.map((post) => (
+    <div
+      key={post.id}
+      style={{
+        backgroundColor: "#fff",
+        padding: "1rem",
+        marginBottom: "1rem",
+        borderRadius: "6px",
+        boxShadow: "0 1px 4px rgba(0,0,0,0.08)"
+      }}
+    >
+      <h3>{post.title}</h3>
+      <p>{post.description}</p>
+      <span>#{post.sort}</span>
+      <span style={{ fontSize: "0.85rem", color: "#888" }}>#{post.tag}</span>
+    </div>
+  ))
+)}
+
+ {/* FR6 implementation end */}
 
         <div style={{
           backgroundColor: "#fff",
@@ -169,9 +229,10 @@ function Home() {
           <p>This is another placeholder post.</p>
           <span style={{ fontSize: "0.85rem", color: "#888" }}>#tag2</span>
         </div>
-      </div>
-
+        </div>
+      
       {/* Right Sidebar */}
+      
       <div style={{
         width: "220px",
         backgroundColor: "#f7f7f7",
@@ -184,8 +245,9 @@ function Home() {
           <li>#tag3</li>
         </ul>
       </div>
-    </div>
-  );
-}
-
+      </div>
+      
+    );
+    }
+    
 export default Home;
