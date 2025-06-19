@@ -1,42 +1,36 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { signOut } from "firebase/auth";
-import { auth } from "../firebase";
+import { auth, db } from "../firebase";
 import { useState, useEffect } from "react";
-import UNTLogo from "../assets/UNTLogo.png"; // ✅ Make sure this path is correct
+import { collection, onSnapshot, query, orderBy, doc, deleteDoc } from "firebase/firestore";
+import UNTLogo from "../assets/UNTLogo.png";
 
 function Home() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  
-  // FR6 implementation, start here 
-   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedSort, setSelectedSort] = useState("");
-  const [filteredPosts, setFilteredPosts] = useState([]);
+  const [posts, setPosts] = useState([]);
+  const [sortBy, setSortBy] = useState("newest");
+  const [activeTag, setActiveTag] = useState(null);
 
-      useEffect(() => {
-            fetch(`/api/search?keyword=${searchTerm}&sort=${selectedSort}`)
-           .then((res) => res.json())
-           .then((data) => setFilteredPosts(data))
-           .catch((err) => console.error("Search error:", err));
-            }, [searchTerm, selectedSort]);
-
-           // FR6 implementation end here
-
+  const filteredPosts = activeTag ? posts.filter(p => p.tag === activeTag) : posts;
 
   const handleLogout = async () => {
     await signOut(auth);
     navigate("/login");
   };
 
+  useEffect(() => {
+    const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setPosts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsubscribe();
+  }, []);
+
   return (
-    <div style={{
-      display: "flex",
-      height: "100vh",
-      width: "100vw",
-      fontFamily: "sans-serif"
-    }}>
+    <div style={{ display: "flex", height: "100vh", width: "100vw", fontFamily: "sans-serif" }}>
       {/* Left Sidebar */}
       <div style={{
         width: "220px",
@@ -47,36 +41,17 @@ function Home() {
         justifyContent: "flex-start",
         alignItems: "center"
       }}>
-        <img
-          src={UNTLogo}
-          alt="UNT Logo"
-          style={{ width: "100%", marginBottom: "-10px" }}
-        />
+        <img src={UNTLogo} alt="UNT Logo" style={{ width: "100%", marginBottom: "-10px" }} />
         <h2 style={{
-          fontFamily: "Georgia, serif",
-          fontSize: "2.5rem",
-          color: "#00853e",
-          marginTop: "-1rem",
-          textAlign: "center"
-        }}>
-          The Nest
-        </h2>
+          fontFamily: "Georgia, serif", fontSize: "1.5rem",
+          color: "#00853e", marginTop: "0.5rem", textAlign: "center"
+        }}>The Nest</h2>
 
-        <button
-          onClick={() => navigate("/ask")}
-          style={{
-            marginTop: "1rem",
-            width: "100%",
-            padding: "10px",
-            backgroundColor: "#00853e",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer"
-          }}
-        >
-          Create Post
-        </button>
+        <button onClick={() => navigate("/createpost")} style={{
+          marginTop: "1.5rem", width: "100%", padding: "10px",
+          backgroundColor: "#00853e", color: "white", border: "none",
+          borderRadius: "4px", cursor: "pointer"
+        }}>Create Post</button>
 
         <h4 style={{ marginTop: "2rem", alignSelf: "flex-start" }}>Recent Posts</h4>
         <ul style={{ paddingLeft: "1rem", fontSize: "0.95rem", alignSelf: "flex-start" }}>
@@ -86,168 +61,116 @@ function Home() {
         </ul>
       </div>
 
-      {/* Center Feed */}
-      <div style={{
-        flex: 1,
-        padding: "2rem",
-        overflowY: "auto",
-        backgroundColor: "#fafafa"
-      }}>
-        {/* Top bar */}
-        <div style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "2rem"
-        }}>
+      {/* Main Feed */}
+      <div style={{ flex: 1, padding: "2rem", overflowY: "auto", backgroundColor: "#fafafa" }}>
+        <div style={{ display: "flex", alignItems: "center", marginBottom: "2rem", gap: "1rem" }}>
+          <input type="text" placeholder="Search..." style={{
+            flex: 1, padding: "10px", border: "1px solid #ccc", borderRadius: "4px"
+          }} />
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{
+            padding: "10px", border: "1px solid #ccc", borderRadius: "4px"
+          }}>
+            <option value="newest">Sort</option>
+            <option value="newest">Newest</option>
+            <option value="oldest">Oldest</option>
+            <option value="tag">By Tag</option>
+          </select>
 
-  <input
-    type="text"
-    placeholder="Search..."
-    value={searchTerm}    
-    onChange={(e) => setSearchTerm(e.target.value)}
-    style={{
-      padding: "10px",
-      width: "60%",
-      border: "1px solid #ccc",
-      borderRadius: "4px"
-    }}  
-/>
-    
-<select     //FR6 implementation start here
-  value={selectedSort}
-  onChange={(e) => setSelectedSort(e.target.value)}
->
-  <option value="">Sort</option>
-  <option value="Academic">Academic</option>
-  <option value="Career">Career</option>
-  <option value="Housing">Housing</option>
-  <option value="Scholarship">Scholarship</option>
-  <option value="Classes">Classes</option>
-  <option value="Internship">Internship</option>
-  <option value="Newest"> Newest</option>
-  <option value="Trending"> Trending</option>
-</select>        
-  {/*FR6 implementation end here */}
-  
           <div style={{ position: "relative" }}>
-            <div
-              onClick={() => setDropdownOpen(!dropdownOpen)}
-              style={{
-                width: "40px",
-                height: "40px",
-                backgroundColor: "#ccc",
-                borderRadius: "50%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer"
-              }}
-             
-              title="Profile"
-            >
-              🧑
-            </div>
+            <div onClick={() => setDropdownOpen(!dropdownOpen)} style={{
+              width: "40px", height: "40px", backgroundColor: "#ccc",
+              borderRadius: "50%", display: "flex", alignItems: "center",
+              justifyContent: "center", cursor: "pointer"
+            }} title="Profile">🧑</div>
             {dropdownOpen && (
               <div style={{
-                position: "absolute",
-                right: 0,
-                top: "50px",
-                backgroundColor: "white",
-                border: "1px solid #ddd",
-                borderRadius: "4px",
-                boxShadow: "0 2px 6px rgba(0,0,0,0.1)"
+                position: "absolute", right: 0, top: "50px", zIndex: 999,
+                backgroundColor: "white", border: "1px solid #ddd",
+                borderRadius: "4px", boxShadow: "0 2px 6px rgba(0,0,0,0.1)"
               }}>
                 <button onClick={() => navigate("/profile")} style={{
-                  padding: "10px 20px",
-                  width: "100%",
-                  border: "none",
-                  backgroundColor: "white",
-                  cursor: "pointer",
-                  textAlign: "left"
+                  padding: "10px 20px", width: "100%", border: "none",
+                  backgroundColor: "white", cursor: "pointer", textAlign: "left"
                 }}>Edit Profile</button>
                 <button onClick={handleLogout} style={{
-                  padding: "10px 20px",
-                  width: "100%",
-                  border: "none",
-                  backgroundColor: "white",
-                  cursor: "pointer",
-                  textAlign: "left"
+                  padding: "10px 20px", width: "100%", border: "none",
+                  backgroundColor: "white", cursor: "pointer", textAlign: "left"
                 }}>Logout</button>
               </div>
             )}
           </div>
         </div>
 
-        {/* Feed */}
         <h2 style={{ marginBottom: "1rem" }}>Feed</h2>
-        
-         {  /*FR6 Implementation start */}
-        {(searchTerm || selectedSort) && filteredPosts.length === 0 ? (
-  <p style={{ fontStyle: "italic", color: "#888" }}>No results </p>
-) : (
-  filteredPosts.map((post) => (
-    <div
-      key={post.id}
-      style={{
-        backgroundColor: "#fff",
-        padding: "1rem",
-        marginBottom: "1rem",
-        borderRadius: "6px",
-        boxShadow: "0 1px 4px rgba(0,0,0,0.08)"
-      }}
-    >
-      <h3>{post.title}</h3>
-      <p>{post.description}</p>
-      <span>#{post.sort}</span>
-      <span style={{ fontSize: "0.85rem", color: "#888" }}>#{post.tag}</span>
-    </div>
-  ))
-)}
+        {activeTag && (
+          <button onClick={() => setActiveTag(null)} style={{
+            marginBottom: "1rem", padding: "5px 10px", backgroundColor: "#ccc",
+            border: "none", borderRadius: "4px", cursor: "pointer"
+          }}>Remove Tag Filter</button>
+        )}
 
- {/* FR6 implementation end */}
+        {filteredPosts.length === 0 ? (
+          <p style={{ color: "#999" }}>No posts found for selected tag.</p>
+        ) : (
+          filteredPosts.map((post) => {
+            const isOwner = post.userId === user?.uid;
+            return (
+              <div key={post.id} style={{
+                display: "flex", flexDirection: "column", position: "relative",
+                backgroundColor: "#fff", padding: "1rem", marginBottom: "1rem",
+                borderRadius: "6px", boxShadow: "0 1px 4px rgba(0,0,0,0.08)"
+              }}>
+                <div style={{ display: "flex", alignItems: "center", marginBottom: "0.5rem" }}>
+                  {post.photoURL ? (
+                    <img src={post.photoURL} alt="avatar" style={{
+                      width: "40px", height: "40px", borderRadius: "50%",
+                      objectFit: "cover", marginRight: "10px"
+                    }} />
+                  ) : (
+                    <div style={{
+                      width: "40px", height: "40px", borderRadius: "50%",
+                      backgroundColor: "#ccc", display: "flex",
+                      alignItems: "center", justifyContent: "center", marginRight: "10px"
+                    }}>🧑</div>
+                  )}
+                  <div>
+                    <div style={{ fontWeight: "bold", fontSize: "0.95rem" }}>{post.userEmail || "Unknown"}</div>
+                    <div style={{ fontSize: "0.8rem", color: "#777" }}>{post.tag}</div>
+                  </div>
+                </div>
+                <h3>{post.title}</h3>
+                <p>{post.description}</p>
+                {isOwner && (
+                  <button onClick={async () => {
+                    try {
+                      await deleteDoc(doc(db, "posts", post.id));
+                    } catch (err) {
+                      console.error("Delete failed", err);
+                    }
+                  }} style={{
+                    position: "absolute", top: "1rem", right: "1rem",
+                    backgroundColor: "#ff4d4d", color: "white",
+                    border: "none", padding: "5px 10px",
+                    borderRadius: "4px", cursor: "pointer"
+                  }}>Delete</button>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
 
-        <div style={{
-          backgroundColor: "#fff",
-          padding: "1rem",
-          marginBottom: "1rem",
-          borderRadius: "6px",
-          boxShadow: "0 1px 4px rgba(0,0,0,0.08)"
-        }}>
-          <h3>Post Title</h3>
-          <p>This is a sample post description.</p>
-          <span style={{ fontSize: "0.85rem", color: "#888" }}>#tag1</span>
-        </div>
-
-        <div style={{
-          backgroundColor: "#fff",
-          padding: "1rem",
-          borderRadius: "6px",
-          boxShadow: "0 1px 4px rgba(0,0,0,0.08)"
-        }}>
-          <h3>Post Title 2</h3>
-          <p>This is another placeholder post.</p>
-          <span style={{ fontSize: "0.85rem", color: "#888" }}>#tag2</span>
-        </div>
-        </div>
-      
       {/* Right Sidebar */}
-      
-      <div style={{
-        width: "220px",
-        backgroundColor: "#f7f7f7",
-        padding: "1rem"
-      }}>
-        <h4>Categories / Tags</h4>
+      <div style={{ width: "220px", backgroundColor: "#f7f7f7", padding: "1rem" }}>
+        <h4>Tags</h4>
         <ul style={{ paddingLeft: "1rem", fontSize: "0.95rem" }}>
-          <li>#tag1</li>
-          <li>#tag2</li>
-          <li>#tag3</li>
+          {["#homework", "#advice", "#events", "#clubs", "#housing"].map((tag) => (
+            <li key={tag} style={{ cursor: "pointer", color: "#0077cc" }} onClick={() => setActiveTag(tag)}>{tag}</li>
+          ))}
         </ul>
       </div>
-      </div>
-      
-    );
-    }
-    
+    </div>
+  );
+}
+
 export default Home;

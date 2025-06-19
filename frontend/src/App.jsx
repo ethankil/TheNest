@@ -4,6 +4,7 @@ import Login from "./pages/Login";
 import Home from "./pages/Home";
 import Profile from "./pages/Profile";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import CreatePost from "./pages/CreatePost";
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
           <Route path="/login" element={<LoginRedirect />} />
           <Route path="/home" element={<Home />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/createpost" element={<CreatePost />} />
         </Routes>
       </Router>
     </AuthProvider>
@@ -21,14 +23,12 @@ function App() {
 }
 
 function RegisterRedirect() {
-  const { user, authLoading } = useAuth();
-  if (authLoading) return <p>Loading...</p>;
+  const { user } = useAuth();
   return user ? <Navigate to="/home" /> : <Register />;
 }
 
 function LoginRedirect() {
-  const { user, authLoading } = useAuth();
-  if (authLoading) return <p>Loading...</p>;
+  const { user } = useAuth();
   return user ? <Navigate to="/home" /> : <Login />;
 }
 
