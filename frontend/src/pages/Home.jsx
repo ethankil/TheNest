@@ -13,21 +13,48 @@ function Home() {
   const [posts, setPosts] = useState([]);
   const [sortBy, setSortBy] = useState("newest");
   const [activeTag, setActiveTag] = useState(null);
+  
+  // FR6 Search
+   const [searchKeyword, setSearchKeyword] = useState("");
+   const handleSearchKeyDown = (e) => {
+      if (e.key === "Enter") {
+          e.preventDefault();
+            }
+         };
+     const filteredPosts = posts.filter((post) => {
+     const matchesTag = activeTag ? post.tag === activeTag : true;
+     const matchesKeyword = searchKeyword
+    ? post.title.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+      post.description.toLowerCase().includes(searchKeyword.toLowerCase())
+    : true;
 
-  const filteredPosts = activeTag ? posts.filter(p => p.tag === activeTag) : posts;
-
-  const handleLogout = async () => {
+       return matchesTag && matchesKeyword;
+     });
+  
+    const handleLogout = async () => {
     await signOut(auth);
     navigate("/login");
   };
 
-  useEffect(() => {
-    const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
+  
+  useEffect(() => {  // FR7 Sort Functionality
+  let q;
+    if (sortBy === "" || sortBy === "newest") {
+       q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
+         } else if (sortBy === "oldest") {
+           q = query(collection(db, "posts"), orderBy("createdAt", "asc"));
+             } else if (sortBy === "tag") {
+                q = query(collection(db, "posts"), orderBy("tag", "asc"));
+            }
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setPosts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
-    return () => unsubscribe();
-  }, []);
+    const fetchedPosts = snapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .filter(post => post.createdAt); 
+        setPosts(fetchedPosts);
+      });
+
+       return () => unsubscribe();
+       }, [sortBy]);
 
   return (
     <div style={{ display: "flex", height: "100vh", width: "100vw", fontFamily: "sans-serif" }}>
@@ -60,17 +87,21 @@ function Home() {
           <li>Post C</li>
         </ul>
       </div>
-
+          
       {/* Main Feed */}
       <div style={{ flex: 1, padding: "2rem", overflowY: "auto", backgroundColor: "#fafafa" }}>
         <div style={{ display: "flex", alignItems: "center", marginBottom: "2rem", gap: "1rem" }}>
-          <input type="text" placeholder="Search..." style={{
+          <input type="text" placeholder="Search..." value= {searchKeyword}  onChange={(e) => setSearchKeyword(e.target.value)}
+           onKeyDown={handleSearchKeyDown}
+
+          style={{
             flex: 1, padding: "10px", border: "1px solid #ccc", borderRadius: "4px"
           }} />
+          
           <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{
             padding: "10px", border: "1px solid #ccc", borderRadius: "4px"
           }}>
-            <option value="newest">Sort</option>
+            <option value= "">Sort</option>
             <option value="newest">Newest</option>
             <option value="oldest">Oldest</option>
             <option value="tag">By Tag</option>
@@ -110,7 +141,7 @@ function Home() {
         )}
 
         {filteredPosts.length === 0 ? (
-          <p style={{ color: "#999" }}>No posts found for selected tag.</p>
+          <p style={{ color: "#999" }}>No posts found for the current search or selected tag.</p>
         ) : (
           filteredPosts.map((post) => {
             const isOwner = post.userId === user?.uid;
