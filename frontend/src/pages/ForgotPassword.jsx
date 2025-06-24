@@ -1,24 +1,24 @@
 import { useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../firebase";
+import { useNavigate } from "react-router-dom";
 import UNTLogo from "../assets/UNTLogo.png";
 import Background from "../assets/Background.jpg";
-import { Link, useNavigate } from "react-router-dom";
 
-function Login() {
+function ForgotPassword() {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const navigate = useNavigate();
 
-  const handleLogin = async (e) => {
+  const handleReset = async (e) => {
     e.preventDefault();
+    setMessage("");
     setError("");
+
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      setSuccess("Login successful!");
-      navigate("/home");
+      await sendPasswordResetEmail(auth, email);
+      setMessage("Password reset email sent. Check your inbox.");
     } catch (err) {
       setError(err.message);
     }
@@ -41,11 +41,7 @@ function Login() {
       backgroundPosition: "center",
       backgroundRepeat: "no-repeat"
     }}>
-      <img
-        src={UNTLogo}
-        alt="UNT Logo"
-        style={{ width: "500px", marginBottom: "-91px" }}
-      />
+      <img src={UNTLogo} alt="UNT Logo" style={{ width: "500px", marginBottom: "-91px" }} />
 
       <h1 style={{
         color: "#00853e",
@@ -57,61 +53,39 @@ function Login() {
         The Nest
       </h1>
 
-      <h2 style={{
-        fontWeight: "normal",
-        fontSize: "1.5rem",
-        marginBottom: "10px"
-      }}>
-        User Login
+      <h2 style={{ fontWeight: "normal", fontSize: "1.5rem", marginBottom: "30px" }}>
+        Reset Your Password
       </h2>
 
-      <form onSubmit={handleLogin} style={{
+      <form onSubmit={handleReset} style={{
         display: "flex",
         flexDirection: "column",
-        gap: "10px",
-        alignItems: "center",
-        width: "300px"
+        width: "300px",
+        gap: "10px"
       }}>
         <input
           type="email"
-          placeholder="Email"
+          placeholder="Enter your email"
+          value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          style={{ padding: "8px", width: "100%" }}
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          style={{ padding: "8px", width: "100%" }}
+          style={{ padding: "10px" }}
         />
         <button type="submit" style={{
           padding: "10px",
           backgroundColor: "#00853e",
           color: "white",
           border: "none",
-          width: "100%",
           cursor: "pointer"
         }}>
-          Login
+          Send Reset Link
         </button>
-
-        <p style={{ textAlign: "center", marginTop: "10px" }}>
-          <Link to="/forgot-password" style={{ color: "#004d28", textDecoration: "underline" }}>
-            Forgot Password?
-          </Link>
-        </p>
       </form>
 
+      {message && <p style={{ color: "green", marginTop: "10px" }}>{message}</p>}
       {error && <p style={{ color: "red", marginTop: "10px" }}>{error}</p>}
-      {success && <p style={{ color: "green", marginTop: "10px" }}>{success}</p>}
-
-      <p style={{ marginTop: "15px" }}>
-        Don’t have an account? <Link to="/">Register here</Link>
-      </p>
     </div>
   );
 }
 
-export default Login;
+export default ForgotPassword;

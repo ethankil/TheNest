@@ -5,6 +5,7 @@ import Home from "./pages/Home";
 import Profile from "./pages/Profile";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import CreatePost from "./pages/CreatePost";
+import ForgotPassword from "./pages/ForgotPassword";
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
           <Route path="/home" element={<Home />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/createpost" element={<CreatePost />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
         </Routes>
       </Router>
     </AuthProvider>
