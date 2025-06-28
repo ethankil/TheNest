@@ -185,6 +185,14 @@ function Home() {
                     borderRadius: "4px", cursor: "pointer"
                   }}>Delete</button>
                 )}
+                {/* Report Button */}
+                <button
+                  onClick={() => navigate("/report", { state: { post } })}
+                  style = {{
+                    height: "20px", width: "55px", padding: "1px 8px", position: "absolute",
+                    top: "10%", left: "90%", backgroundColor: "#00853e", color: "white", 
+                    fontSize: "12px", border: "none", borderRadius: "4px", cursor: "pointer"
+                  }}>Report</button>
               </div>
             );
           })
