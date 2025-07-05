@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { signOut } from "firebase/auth";
-import { auth, db, storage } from "../firebase";
+import { auth, db } from "../firebase";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import UNTLogo from "../assets/UNTLogo.png";
@@ -16,9 +15,7 @@ function Profile() {
     major: "",
     gradYear: "",
     bio: "",
-    photoURL: ""
   });
-  const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
@@ -41,12 +38,6 @@ function Profile() {
     loadProfile();
   }, [authLoading, user, navigate]);
 
-  const handleFileChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-    }
-  };
-
   const handleChange = (e) => {
     setProfile({ ...profile, [e.target.name]: e.target.value });
   };
@@ -55,16 +46,7 @@ function Profile() {
     e.preventDefault();
     setMessage("Saving...");
     try {
-      let updatedProfile = { ...profile };
-
-      if (file) {
-        const storageRef = ref(storage, `profilePictures/${user.uid}`);
-        await uploadBytes(storageRef, file);
-        const url = await getDownloadURL(storageRef);
-        updatedProfile.photoURL = url;
-      }
-
-      await setDoc(doc(db, "users", user.uid), updatedProfile);
+      await setDoc(doc(db, "users", user.uid), profile);
       setMessage("Profile updated successfully.");
       setTimeout(() => {
         navigate("/home");
@@ -78,9 +60,8 @@ function Profile() {
   const handleDeleteAccount = async () => {
     if (!window.confirm("Are you sure you want to delete your account? This cannot be undone.")) return;
     try {
-      await setDoc(doc(db, "users", user.uid), {}, { merge: true }); // Optional: clear Firestore data
-      // Firebase may require recent login before deletion
-      await user.delete(); // Delete Firebase Auth user
+      await setDoc(doc(db, "users", user.uid), {}, { merge: true });
+      await user.delete();
       navigate("/login");
     } catch (error) {
       console.error("Failed to delete account:", error);
@@ -107,21 +88,6 @@ function Profile() {
       backgroundRepeat: "no-repeat",
       position: "relative"
     }}>
-      {/* Top-right profile bubble */}
-      <div style={{ position: "absolute", top: "20px", right: "20px" }}>
-        <img
-          src={profile.photoURL ? profile.photoURL : "https://via.placeholder.com/40"}
-          alt="Profile"
-          style={{
-            width: "40px",
-            height: "40px",
-            borderRadius: "50%",
-            objectFit: "cover",
-            border: "2px solid #00853e"
-          }}
-        />
-      </div>
-
       <img src={UNTLogo} alt="UNT Logo" style={{ width: "500px", marginBottom: "-91px" }} />
 
       <h1 style={{
@@ -178,12 +144,6 @@ function Profile() {
           value={profile.bio}
           onChange={handleChange}
           style={{ padding: "8px", width: "100%", minHeight: "100px" }}
-        />
-        <input
-          type="file"
-          accept="image/*"
-          onChange={handleFileChange}
-          style={{ padding: "8px", width: "100%" }}
         />
 
         <button type="submit" style={{

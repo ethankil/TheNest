@@ -167,6 +167,12 @@ function Home() {
                   <div>
                     <div style={{ fontWeight: "bold", fontSize: "0.95rem" }}>{post.userEmail || "Unknown"}</div>
                     <div style={{ fontSize: "0.8rem", color: "#777" }}>{post.tag}</div>
+                    {/*Time Stamp */}
+                    {post.createdAt && (
+                      <div style={{ fontSize: "0.75rem", color: "#999" }}>
+                        {post.createdAt.toDate().toLocaleString()}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <h3>{post.title}</h3>
