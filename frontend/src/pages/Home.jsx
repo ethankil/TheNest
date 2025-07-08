@@ -3,7 +3,9 @@ import { useAuth } from "../context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth, db } from "../firebase";
 import { useState, useEffect } from "react";
-import { collection, onSnapshot, query, orderBy, doc, deleteDoc } from "firebase/firestore";
+import { 
+  collection, onSnapshot, query, orderBy, doc, deleteDoc, addDoc, serverTimestamp 
+} from "firebase/firestore";
 import UNTLogo from "../assets/UNTLogo.png";
 
 function Home() {
@@ -13,48 +15,73 @@ function Home() {
   const [posts, setPosts] = useState([]);
   const [sortBy, setSortBy] = useState("newest");
   const [activeTag, setActiveTag] = useState(null);
-  
-  // FR6 Search
-   const [searchKeyword, setSearchKeyword] = useState("");
-   const handleSearchKeyDown = (e) => {
-      if (e.key === "Enter") {
-          e.preventDefault();
-            }
-         };
-     const filteredPosts = posts.filter((post) => {
-     const matchesTag = activeTag ? post.tag === activeTag : true;
-     const matchesKeyword = searchKeyword
-    ? post.title.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-      post.description.toLowerCase().includes(searchKeyword.toLowerCase())
-    : true;
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [commentInputs, setCommentInputs] = useState({});
+  const [comments, setComments] = useState({}); // { postId: [comments] }
 
-       return matchesTag && matchesKeyword;
-     });
-  
-    const handleLogout = async () => {
+  const handleSearchKeyDown = (e) => {
+    if (e.key === "Enter") e.preventDefault();
+  };
+
+  const filteredPosts = posts.filter((post) => {
+    const matchesTag = activeTag ? post.tag === activeTag : true;
+    const matchesKeyword = searchKeyword
+      ? post.title.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+        post.description.toLowerCase().includes(searchKeyword.toLowerCase())
+      : true;
+    return matchesTag && matchesKeyword;
+  });
+
+  const handleLogout = async () => {
     await signOut(auth);
     navigate("/login");
   };
 
-  
-  useEffect(() => {  // FR7 Sort Functionality
-  let q;
+  useEffect(() => {
+    let q;
     if (sortBy === "" || sortBy === "newest") {
-       q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
-         } else if (sortBy === "oldest") {
-           q = query(collection(db, "posts"), orderBy("createdAt", "asc"));
-             } else if (sortBy === "tag") {
-                q = query(collection(db, "posts"), orderBy("tag", "asc"));
-            }
+      q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
+    } else if (sortBy === "oldest") {
+      q = query(collection(db, "posts"), orderBy("createdAt", "asc"));
+    } else if (sortBy === "tag") {
+      q = query(collection(db, "posts"), orderBy("tag", "asc"));
+    }
     const unsubscribe = onSnapshot(q, (snapshot) => {
-    const fetchedPosts = snapshot.docs
-      .map(doc => ({ id: doc.id, ...doc.data() }))
-      .filter(post => post.createdAt); 
-        setPosts(fetchedPosts);
-      });
+      const fetchedPosts = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(post => post.createdAt);
+      setPosts(fetchedPosts);
 
-       return () => unsubscribe();
-       }, [sortBy]);
+      // For each post, listen to its comments
+      fetchedPosts.forEach(post => {
+        const commentsRef = collection(db, "posts", post.id, "comments");
+        const commentsQuery = query(commentsRef, orderBy("createdAt", "asc"));
+        onSnapshot(commentsQuery, (snapshot) => {
+          const postComments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setComments(prev => ({ ...prev, [post.id]: postComments }));
+        });
+      });
+    });
+    return () => unsubscribe();
+  }, [sortBy]);
+
+  const handleAddComment = async (postId) => {
+    const text = commentInputs[postId];
+    if (!text || !user) return;
+    const commentsRef = collection(db, "posts", postId, "comments");
+    await addDoc(commentsRef, {
+      userId: user.uid,
+      userName: user.displayName || user.email || "Anonymous",
+      text,
+      createdAt: serverTimestamp(),
+    });
+    setCommentInputs(prev => ({ ...prev, [postId]: "" }));
+  };
+
+  const handleDeleteComment = async (postId, commentId) => {
+    const commentDoc = doc(db, "posts", postId, "comments", commentId);
+    await deleteDoc(commentDoc);
+  };
 
   return (
     <div style={{ display: "flex", height: "100vh", width: "100vw", fontFamily: "sans-serif" }}>
@@ -91,17 +118,15 @@ function Home() {
       {/* Main Feed */}
       <div style={{ flex: 1, padding: "2rem", overflowY: "auto", backgroundColor: "#fafafa" }}>
         <div style={{ display: "flex", alignItems: "center", marginBottom: "2rem", gap: "1rem" }}>
-          <input type="text" placeholder="Search..." value= {searchKeyword}  onChange={(e) => setSearchKeyword(e.target.value)}
-           onKeyDown={handleSearchKeyDown}
-
-          style={{
-            flex: 1, padding: "10px", border: "1px solid #ccc", borderRadius: "4px"
-          }} />
+          <input type="text" placeholder="Search..." value={searchKeyword}
+            onChange={(e) => setSearchKeyword(e.target.value)}
+            onKeyDown={handleSearchKeyDown}
+            style={{ flex: 1, padding: "10px", border: "1px solid #ccc", borderRadius: "4px" }} />
           
           <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{
             padding: "10px", border: "1px solid #ccc", borderRadius: "4px"
           }}>
-            <option value= "">Sort</option>
+            <option value="">Sort</option>
             <option value="newest">Newest</option>
             <option value="oldest">Oldest</option>
             <option value="tag">By Tag</option>
@@ -145,6 +170,7 @@ function Home() {
         ) : (
           filteredPosts.map((post) => {
             const isOwner = post.userId === user?.uid;
+            const postComments = comments[post.id] || [];
             return (
               <div key={post.id} style={{
                 display: "flex", flexDirection: "column", position: "relative",
@@ -167,7 +193,6 @@ function Home() {
                   <div>
                     <div style={{ fontWeight: "bold", fontSize: "0.95rem" }}>{post.userEmail || "Unknown"}</div>
                     <div style={{ fontSize: "0.8rem", color: "#777" }}>{post.tag}</div>
-                    {/*Time Stamp */}
                     {post.createdAt && (
                       <div style={{ fontSize: "0.75rem", color: "#999" }}>
                         {post.createdAt.toDate().toLocaleString()}
@@ -177,6 +202,48 @@ function Home() {
                 </div>
                 <h3>{post.title}</h3>
                 <p>{post.description}</p>
+
+                {/* Comments Section */}
+                <div style={{ marginTop: "10px", borderTop: "1px solid #ddd", paddingTop: "10px" }}>
+                  <h4>Comments</h4>
+                  {postComments.map(comment => (
+                    <div key={comment.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "5px" }}>
+                      <div>
+                        <strong>{comment.userName}: </strong>{comment.text}
+                        {comment.createdAt && (
+                          <span style={{ marginLeft: "8px", fontSize: "0.75rem", color: "#999" }}>
+                            {comment.createdAt.toDate().toLocaleString()}
+                          </span>
+                        )}
+                        {!comment.createdAt && (
+                          <span style={{ marginLeft: "8px", fontSize: "0.75rem", color: "#999" }}>
+                          Just now
+                          </span>
+                        )}
+                      </div>
+                      {comment.userId === user?.uid && (
+                        <button onClick={() => handleDeleteComment(post.id, comment.id)}
+                            style={{ backgroundColor: "#ff4d4d", color: "white", border: "none", borderRadius: "4px", padding: "2px 5px", cursor: "pointer" }}>
+                            Delete
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <div style={{ marginTop: "5px" }}>
+                    <input
+                      type="text"
+                      placeholder="Add a comment..."
+                      value={commentInputs[post.id] || ""}
+                      onChange={(e) => setCommentInputs(prev => ({ ...prev, [post.id]: e.target.value }))}
+                      style={{ width: "80%", padding: "5px", marginRight: "5px" }}
+                    />
+                    <button onClick={() => handleAddComment(post.id)}
+                      style={{ padding: "5px 10px", backgroundColor: "#00853e", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>
+                      Comment
+                    </button>
+                  </div>
+                </div>
+
                 {isOwner && (
                   <button onClick={async () => {
                     try {
@@ -191,12 +258,12 @@ function Home() {
                     borderRadius: "4px", cursor: "pointer"
                   }}>Delete</button>
                 )}
-                {/* Report Button */}
+
                 <button
                   onClick={() => navigate("/report", { state: { post } })}
-                  style = {{
+                  style={{
                     height: "20px", width: "55px", padding: "1px 8px", position: "absolute",
-                    top: "10%", left: "90%", backgroundColor: "#00853e", color: "white", 
+                    top: "10%", left: "90%", backgroundColor: "#00853e", color: "white",
                     fontSize: "12px", border: "none", borderRadius: "4px", cursor: "pointer"
                   }}>Report</button>
               </div>
