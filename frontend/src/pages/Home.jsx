@@ -2,7 +2,12 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth, db } from "../firebase";
+import { useRef } from "react";
 import { useState, useEffect } from "react";
+import { deleteField } from "firebase/firestore";
+import {
+  updateDoc, increment, getDoc, setDoc
+} from "firebase/firestore";
 import { 
   collection, onSnapshot, query, orderBy, doc, deleteDoc, addDoc, serverTimestamp 
 } from "firebase/firestore";
@@ -13,6 +18,8 @@ function Home() {
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [posts, setPosts] = useState([]);
+  const [selectedPostId, setSelectedPostId] = useState(null);
+  const postRefs = useRef({});
   const [sortBy, setSortBy] = useState("newest");
   const [activeTag, setActiveTag] = useState(null);
   const [searchKeyword, setSearchKeyword] = useState("");
@@ -109,9 +116,21 @@ function Home() {
 
         <h4 style={{ marginTop: "2rem", alignSelf: "flex-start" }}>Recent Posts</h4>
         <ul style={{ paddingLeft: "1rem", fontSize: "0.95rem", alignSelf: "flex-start" }}>
-          <li>Post A</li>
-          <li>Post B</li>
-          <li>Post C</li>
+          {posts.slice(0, 5).map((post) => (
+            <li
+              key={post.id}
+              onClick={() => {
+                setSelectedPostId(post.id);
+                const element = postRefs.current[post.id];
+                if (element) {
+                  element.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
+              }}
+              style={{ color: "#0077cc", cursor: "pointer", marginBottom: "0.5rem" }}
+            >
+              {post.title}
+            </li>
+          ))}
         </ul>
       </div>
           
@@ -171,8 +190,42 @@ function Home() {
           filteredPosts.map((post) => {
             const isOwner = post.userId === user?.uid;
             const postComments = comments[post.id] || [];
+            const handleReaction = async (postId, type) => {
+            const postRef = doc(db, "posts", postId);
+            const postSnap = await getDoc(postRef);
+            const postData = postSnap.data();
+
+            if (!postData || !user) return;
+
+            const reactions = postData.reactions || {};
+            const userReaction = reactions[user.uid];
+
+            const update = {};
+
+            // Remove previous reaction count
+            if (userReaction === "like") {
+              update.likes = increment(-1);
+            } else if (userReaction === "dislike") {
+              update.dislikes = increment(-1);
+            }
+
+            if (userReaction === type) {
+              // Toggle: user clicked same reaction again → remove it
+              update[`reactions.${user.uid}`] = deleteField();
+            } else {
+              // New reaction
+              update[`reactions.${user.uid}`] = type;
+              if (type === "like") {
+                update.likes = increment(1);
+              } else if (type === "dislike") {
+                update.dislikes = increment(1);
+              }
+            }
+
+            await updateDoc(postRef, update);
+          };
             return (
-              <div key={post.id} style={{
+              <div key={post.id} ref={el => postRefs.current[post.id] = el} style={{
                 display: "flex", flexDirection: "column", position: "relative",
                 backgroundColor: "#fff", padding: "1rem", marginBottom: "1rem",
                 borderRadius: "6px", boxShadow: "0 1px 4px rgba(0,0,0,0.08)"
@@ -202,7 +255,20 @@ function Home() {
                 </div>
                 <h3>{post.title}</h3>
                 <p>{post.description}</p>
-
+                <div style={{ marginTop: "10px", display: "flex", alignItems: "center", gap: "10px" }}>
+                  <button onClick={() => handleReaction(post.id, "like")} style={{
+                    backgroundColor: "#00853e", color: "white", border: "none",
+                    borderRadius: "4px", padding: "5px 10px", cursor: "pointer"
+                  }}>
+                    👍 Like ({post.likes || 0})
+                  </button>
+                  <button onClick={() => handleReaction(post.id, "dislike")} style={{
+                    backgroundColor: "#ccc", color: "#333", border: "none",
+                    borderRadius: "4px", padding: "5px 10px", cursor: "pointer"
+                  }}>
+                    👎 Dislike ({post.dislikes || 0})
+                  </button>
+                </div>
                 {/* Comments Section */}
                 <div style={{ marginTop: "10px", borderTop: "1px solid #ddd", paddingTop: "10px" }}>
                   <h4>Comments</h4>
