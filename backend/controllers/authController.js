@@ -18,3 +18,11 @@ exports.register = async (req, res) => {
 
   res.status(201).json({ message: "User created", token });
 };
+
+//FR8
+await firestore.collection('users').doc(uid).set({
+  email: req.body.email,
+  name: req.body.name,
+  email_notifications_enabled: true
+});
+

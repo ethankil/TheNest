@@ -16,6 +16,9 @@ function Profile() {
     gradYear: "",
     bio: "",
   });
+  const [emailNotifications, setEmailNotifications] = useState(true);   //FR8
+  const [notificationMessage, setNotificationMessage] = useState("");   //FR8
+
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
@@ -37,6 +40,43 @@ function Profile() {
 
     loadProfile();
   }, [authLoading, user, navigate]);
+
+  
+
+   //FR8
+   useEffect(() => {
+     const fetchPreference = async () => {
+      if (user?.uid) {
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setEmailNotifications(data.email_notifications_enabled ?? true);
+        }
+      }
+    };
+    fetchPreference();
+  }, [user]);
+ 
+     const handleNotificationToggle = async (e) => {
+     const newValue = e.target.checked;
+ 
+    try {
+      const userDocRef = doc(db, "users", user.uid);
+      await setDoc(userDocRef, { email_notifications_enabled: newValue }, { merge: true });
+      setEmailNotifications(newValue);
+ 
+      // Set dynamic message based on toggle value
+      setNotificationMessage(newValue ? "Notification is ON" : "Notification is OFF");
+ 
+      // Hide message after 4 seconds
+      setTimeout(() => setNotificationMessage(""), 4000);
+    } catch (error) {
+      console.error("Error updating preference:", error);
+      setNotificationMessage("Failed to update notification preference");
+      setTimeout(() => setNotificationMessage(""), 4000);
+       }
+     };
+     //FR8
 
   const handleChange = (e) => {
     setProfile({ ...profile, [e.target.name]: e.target.value });
@@ -145,6 +185,44 @@ function Profile() {
           onChange={handleChange}
           style={{ padding: "8px", width: "100%", minHeight: "100px" }}
         />
+        {/* FR8 */}
+      <div style={{
+     
+          width: "100%",
+          padding: "8px",
+          border: "1px solid #ccc",
+          borderRadius: "1px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          backgroundColor: "#fff",
+          boxSizing: "border-box"
+        }}>
+        <label style={{ display: "flex", alignItems: "center", fontSize: "15px", gap: "10px" }}>
+       <input
+        type="checkbox"
+        checked={emailNotifications}
+        onChange={handleNotificationToggle}
+        style={{
+        width: "22px",
+        height: "22px",
+        accentColor: "#00853e",
+        cursor: "pointer"
+      }}
+       />
+       <span> Notifications</span>
+       </label>
+         <span style={{
+         fontSize: "12px",
+         color: notificationMessage.includes("OFF") ? "red" : "green",
+         visibility: notificationMessage ? "visible" : "hidden",
+          transition: "visibility 0.4s ease"
+        }}>
+         {notificationMessage}
+       </span>
+       </div>
+
+       {/* FR8 */ }
 
         <button type="submit" style={{
           padding: "10px",
