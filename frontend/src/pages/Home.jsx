@@ -5,6 +5,8 @@ import { auth, db } from "../firebase";
 import { useRef } from "react";
 import { useState, useEffect } from "react";
 import { deleteField } from "firebase/firestore";
+import { where } from "firebase/firestore"; 
+import { getDocs } from "firebase/firestore";
 import {
   updateDoc, increment, getDoc, setDoc
 } from "firebase/firestore";
@@ -29,71 +31,117 @@ function Home() {
   const handleSearchKeyDown = (e) => {
     if (e.key === "Enter") e.preventDefault();
   };
+  
+    //Notifications
+   const [followedTags, setFollowedTags] = useState([]);
 
-  const filteredPosts = posts.filter((post) => {
-    const matchesTag = activeTag ? post.tag === activeTag : true;
-    const matchesKeyword = searchKeyword
-      ? post.title.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-        post.description.toLowerCase().includes(searchKeyword.toLowerCase())
-      : true;
-    return matchesTag && matchesKeyword;
-  });
+   useEffect(() => {
+      if (!user) return;
+     const followsRef = collection(db, "follows");
+     const q = query(followsRef, where("user_id", "==", user.uid));
+     const unsubscribe = onSnapshot(q, (snapshot) => {
+     const tags = snapshot.docs.map(doc => doc.data().target_id);
+     setFollowedTags(tags);
+   });
 
-  const handleLogout = async () => {
-    await signOut(auth);
-    navigate("/login");
-  };
+      return () => unsubscribe();
+    }, [user]);
 
-  useEffect(() => {
-    let q;
-    if (sortBy === "" || sortBy === "newest") {
-      q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
-    } else if (sortBy === "oldest") {
-      q = query(collection(db, "posts"), orderBy("createdAt", "asc"));
-    } else if (sortBy === "tag") {
-      q = query(collection(db, "posts"), orderBy("tag", "asc"));
-    }
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+     const handleToggleFollow = async (tag) => {
+     const followRef = collection(db, "follows");
+     const q = query(followRef, where("user_id", "==", user.uid), where("target_id", "==", tag));
+     const snapshot = await getDocs(q);
+
+         if (!snapshot.empty) {
+         await deleteDoc(snapshot.docs[0].ref); // Unfollow
+         } else {
+         await addDoc(followRef, {
+          user_id: user.uid,
+          target_id: tag,
+          target_type: "tag",
+          created_at: serverTimestamp(),
+          }); 
+       }
+     };
+
+     const filteredPosts = posts.filter((post) => {
+     const matchesTag = activeTag ? post.tag === activeTag : true;
+     const matchesKeyword = searchKeyword
+        ? post.title.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+         post.description.toLowerCase().includes(searchKeyword.toLowerCase())
+         : true;
+         return matchesTag && matchesKeyword;
+       });
+
+        const handleLogout = async () => {
+           await signOut(auth);
+           navigate("/login");
+         };
+
+      useEffect(() => {
+         let q;
+           try {
+           if (sortBy === "" || sortBy === "newest") {
+           q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
+           } else if (sortBy === "oldest") {
+           q = query(collection(db, "posts"), orderBy("createdAt", "asc"));
+           } else if (sortBy === "Most Likes") {
+           q = query(collection(db, "posts"), orderBy("likes", "desc"));
+           } else {
+           console.warn("Unexpected sortBy value:", sortBy);
+           q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
+         }
+          if (!q) {
+          console.error("Query could not be built. Skipping Firestore listener.");
+          return;
+     }
+      
+
+      const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedPosts = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter(post => post.createdAt);
-      setPosts(fetchedPosts);
+           .map(doc => ({ id: doc.id, ...doc.data() }))
+           .filter(post => post.createdAt);
+           setPosts(fetchedPosts);
 
-      // For each post, listen to its comments
-      fetchedPosts.forEach(post => {
-        const commentsRef = collection(db, "posts", post.id, "comments");
-        const commentsQuery = query(commentsRef, orderBy("createdAt", "asc"));
-        onSnapshot(commentsQuery, (snapshot) => {
+         // For each post, listen to its comments
+          fetchedPosts.forEach(post => {
+          const commentsRef = collection(db, "posts", post.id, "comments");
+          const commentsQuery = query(commentsRef, orderBy("createdAt", "asc"));
+          onSnapshot(commentsQuery, (snapshot) => {
           const postComments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
           setComments(prev => ({ ...prev, [post.id]: postComments }));
         });
       });
     });
-    return () => unsubscribe();
+       return () => unsubscribe();
+  }
+       catch (error) {
+       console.error("Error setting up post listener:", error);
+     }
   }, [sortBy]);
 
-  const handleAddComment = async (postId) => {
-    const text = commentInputs[postId];
-    if (!text || !user) return;
-    const commentsRef = collection(db, "posts", postId, "comments");
-    await addDoc(commentsRef, {
-      userId: user.uid,
-      userName: user.displayName || user.email || "Anonymous",
-      text,
-      createdAt: serverTimestamp(),
+       const handleAddComment = async (postId) => {
+       const text = commentInputs[postId];
+       if (!text || !user) return;
+       const commentsRef = collection(db, "posts", postId, "comments");
+       await addDoc(commentsRef, {
+       userId: user.uid,
+       userName: user.displayName || user.email || "Anonymous",
+       text,
+       createdAt: serverTimestamp(),
     });
-    setCommentInputs(prev => ({ ...prev, [postId]: "" }));
-  };
+       setCommentInputs(prev => ({ ...prev, [postId]: "" }));
+   };
 
-  const handleDeleteComment = async (postId, commentId) => {
-    const commentDoc = doc(db, "posts", postId, "comments", commentId);
-    await deleteDoc(commentDoc);
-  };
+        const handleDeleteComment = async (postId, commentId) => {
+        const commentDoc = doc(db, "posts", postId, "comments", commentId);
+        await deleteDoc(commentDoc);
+    };
 
-  return (
-    <div style={{ display: "flex", height: "100vh", width: "100vw", fontFamily: "sans-serif" }}>
-      {/* Left Sidebar */}
-      <div style={{
+        return (
+     <div style={{ display: "flex", height: "100vh", width: "100vw", fontFamily: "sans-serif" }}>
+          {/* Left Sidebar */}
+     <div style={{
         width: "220px",
         backgroundColor: "#f0f0f0",
         padding: "1rem",
@@ -148,7 +196,7 @@ function Home() {
             <option value="">Sort</option>
             <option value="newest">Newest</option>
             <option value="oldest">Oldest</option>
-            <option value="tag">By Tag</option>
+            <option value="Most Likes">Most Likes</option>
           </select>
 
           <div style={{ position: "relative" }}>
@@ -338,17 +386,78 @@ function Home() {
         )}
       </div>
 
-      {/* Right Sidebar */}
-      <div style={{ width: "220px", backgroundColor: "#f7f7f7", padding: "1rem" }}>
-        <h4>Tags</h4>
-        <ul style={{ paddingLeft: "1rem", fontSize: "0.95rem" }}>
-          {["#homework", "#advice", "#events", "#clubs", "#housing"].map((tag) => (
-            <li key={tag} style={{ cursor: "pointer", color: "#0077cc" }} onClick={() => setActiveTag(tag)}>{tag}</li>
-          ))}
-        </ul>
-      </div>
-    </div>
-  );
-}
+         {/* Right Sidebar */}
+        <div style={{ width: "220px", backgroundColor: "#f7f7f7", padding: "1rem" }}>
+          <h4>Tags</h4>
 
+           <ul style={{ paddingLeft: "1rem", fontSize: "0.95rem" }}>
+           {["#homework", "#advice", "#events", "#clubs", "#housing"].map((tag) => {
+           const isFollowed = followedTags.includes(tag);
+            return (
+            <li
+              key={tag}
+              style={{
+              color: "#0077cc",
+             }}
+           >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span
+                onClick={() => setActiveTag(tag)}
+                style={{
+                cursor: "pointer",
+                flex:1,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+                 {tag}
+                 </span>
+                 <button
+                 onClick={() => handleToggleFollow(tag)}
+                  style={{
+                  fontSize: "12px",
+                  padding: "2px 6px",
+                  borderRadius: "4px",
+                  border: "none",
+                  cursor: "pointer",
+                  backgroundColor: isFollowed ? "#ff4d4d" : "#00853e",
+                  color: "white",
+                }}
+               >
+              {isFollowed ? "Unfollow" : "Follow"}
+               </button>
+              </div>
+            </li>
+            );
+         })}
+     </ul>
+
+            {/* Followed Tags Section */}
+            <h4 style={{ marginTop: "5rem", marginBottom: "0.5rem" }}>Followed Tags</h4>
+             {followedTags.length === 0 ? (
+             <p style={{ fontSize: "0.9rem", color: "#777", marginTop: "0.5rem" }}>
+              You’re not following any Tags yet.
+            </p>
+         ) : (
+            <ul style={{ paddingLeft: "0.5rem", fontSize: "0.95rem", listStyleType: "disc", listStylePosition: "inside" }}>
+             {followedTags.map((tag) => (
+           <li
+                   key={tag}
+                   onClick={() => setActiveTag(tag)}
+                   style={{
+                   color: "#0077cc",
+                   cursor: "pointer",
+                      }}
+                      >
+                   {tag}
+                </li>
+              ))}
+            </ul>
+           )}
+        </div>
+     </div>
+     );
+   }
 export default Home;
+        
+
